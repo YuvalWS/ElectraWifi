@@ -154,6 +154,23 @@ void loopHandler() {
 #endif
 }
 
+bool powerHandler(const HomieRange& range, const String& value) {
+  // This method is called when using the HA actions climate.turn_on and climate.turn_off
+  Serial << "MQTT received: power=" << value << endl;
+  if (value == "on") {
+    ac.power_setting = true;
+  } else if (value == "off") {
+    ac.power_setting = false;
+  } else {
+    Serial << "MQTT error: invalid power value" << endl;
+    return false;
+  }
+  ac.SendElectra(false);
+  ac.power_real = ac.power_setting;
+  powerNode.setProperty("state").send(ac.power_real ? "on": "off");
+  send_updates();
+  return true;
+}
 
 bool temperatureHandler(const HomieRange& range, const String& value) {
   Serial << "MQTT received: temperature=" << value << endl;
@@ -169,6 +186,8 @@ bool temperatureHandler(const HomieRange& range, const String& value) {
 }
 
 bool modeHandler(const HomieRange& range, const String& value) {
+  // This method is called when using the HA action climate.set_hvac_mode
+  // Since climate.set_hvac_mode can be used to switch between `off` and other modes instead of climate.turn_on/off, it needs to call powerHandler.
   Serial << "MQTT received: mode=" << value << endl;
   if (value == "cool") {
     ac.mode = MODE_COOL;
@@ -180,13 +199,13 @@ bool modeHandler(const HomieRange& range, const String& value) {
     ac.mode = MODE_DRY;
   } else if (value == "fan") {
     ac.mode = MODE_FAN;
+  } else if (value == "off") {
+    return powerHandler(range, "off");
   } else {
     Serial << "MQTT error: invalid mode value" << endl;
     return false;
   }
-  ac.SendElectra(false);
-  send_updates();
-  return true;
+  return powerHandler(range, "on");
 }
 
 bool fanHandler(const HomieRange& range, const String& value) {
@@ -258,22 +277,6 @@ bool swingHandler(const HomieRange& range, const String& value) {
   return true;
 }
 
-bool powerHandler(const HomieRange& range, const String& value) {
-  Serial << "MQTT received: power=" << value << endl;
-  if (value == "on") {
-    ac.power_setting = true;
-  } else if (value == "off") {
-    ac.power_setting = false;
-  } else {
-    Serial << "MQTT error: invalid power value" << endl;
-    return false;
-  }
-  ac.SendElectra(false);
-  ac.power_real = ac.power_setting;
-  powerNode.setProperty("state").send(ac.power_real ? "on": "off");
-  send_updates();
-  return true;
-}
 
 bool jsonHandler(const HomieRange& range, const String& value) {
   Serial << "MQTT received: json=" << value << endl;

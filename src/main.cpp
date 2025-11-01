@@ -109,6 +109,7 @@ void loopHandler() {
   if (power_state != ac.power_real) {
     if (power_change_time) {
       if (now - power_change_time > POWER_DEBOUNCE) {
+        Serial << "Power pin state changed: " << (power_state ? "on" : "off") << endl;
         ac.power_real = power_state;
         ac.power_setting = power_state;
         powerNode.setProperty("state").send(power_state ? "on": "off");
@@ -144,6 +145,7 @@ void loopHandler() {
     code = DecodeElectraIR(ir_ticks);
     irrecv.resume();
     if (code) {
+      Serial << "IR command received: 0x" << String((unsigned long)code, HEX) << endl;
       ac.UpdateFromIR(code);
       ac.SendElectra(false);
       send_updates();
@@ -154,8 +156,10 @@ void loopHandler() {
 
 
 bool temperatureHandler(const HomieRange& range, const String& value) {
+  Serial << "MQTT received: temperature=" << value << endl;
   uint8_t temp = value.toInt();
   if (temp < 15 || temp > 30) { // setpoint temp has only 4 bits where 15 == 0b0000 and 30 == 0b1111
+    Serial << "MQTT error: temperature out of range (15-30)" << endl;
     return false;
   }
   ac.temperature = temp;
@@ -165,6 +169,7 @@ bool temperatureHandler(const HomieRange& range, const String& value) {
 }
 
 bool modeHandler(const HomieRange& range, const String& value) {
+  Serial << "MQTT received: mode=" << value << endl;
   if (value == "cool") {
     ac.mode = MODE_COOL;
   } else if (value == "heat") {
@@ -176,6 +181,7 @@ bool modeHandler(const HomieRange& range, const String& value) {
   } else if (value == "fan") {
     ac.mode = MODE_FAN;
   } else {
+    Serial << "MQTT error: invalid mode value" << endl;
     return false;
   }
   ac.SendElectra(false);
@@ -184,6 +190,7 @@ bool modeHandler(const HomieRange& range, const String& value) {
 }
 
 bool fanHandler(const HomieRange& range, const String& value) {
+  Serial << "MQTT received: fan=" << value << endl;
   if (value == "low") {
     ac.fan = FAN_LOW;
   } else if (value == "med") {
@@ -193,6 +200,7 @@ bool fanHandler(const HomieRange& range, const String& value) {
   } else if (value == "auto") {
     ac.fan = FAN_AUTO;
   } else {
+    Serial << "MQTT error: invalid fan value" << endl;
     return false;
   }
   ac.SendElectra(false);
@@ -201,11 +209,13 @@ bool fanHandler(const HomieRange& range, const String& value) {
 }
 
 bool ifeelHandler(const HomieRange& range, const String& value) {
+  Serial << "MQTT received: ifeel=" << value << endl;
   if (value == "on") {
     ac.ifeel = IFEEL_ON;
   } else if (value == "off") {
     ac.ifeel = IFEEL_OFF;
   } else {
+    Serial << "MQTT error: invalid ifeel value" << endl;
     return false;
   }
   ac.SendElectra(false);
@@ -214,8 +224,10 @@ bool ifeelHandler(const HomieRange& range, const String& value) {
 }
 
 bool ifeelTempHandler(const HomieRange& range, const String& value) {
+  Serial << "MQTT received: ifeel_temperature=" << value << endl;
   uint8_t temp = value.toInt();
   if (temp < 5 || temp > 36) { // ifeel temp has only 5 bits where 0 == 0b00000 and 36 == 0b11111
+    Serial << "MQTT error: ifeel_temperature out of range (5-36)" << endl;
     return false;
   }
   ac.ifeel_temperature = temp;
@@ -224,7 +236,7 @@ bool ifeelTempHandler(const HomieRange& range, const String& value) {
 }
 
 bool swingHandler(const HomieRange& range, const String& value) {
-  //Serial << "Swing Handler value: " << value << endl;
+  Serial << "MQTT received: swing=" << value << endl;
   if (value == "on") {
     ac.swing = SWING_ON;
     ac.swing_h = SWING_H_OFF;
@@ -238,6 +250,7 @@ bool swingHandler(const HomieRange& range, const String& value) {
     ac.swing = SWING_OFF;
     ac.swing_h = SWING_H_OFF;
   } else {
+    Serial << "MQTT error: invalid swing value" << endl;
     return false;
   }
   ac.SendElectra(false);
@@ -246,11 +259,13 @@ bool swingHandler(const HomieRange& range, const String& value) {
 }
 
 bool powerHandler(const HomieRange& range, const String& value) {
+  Serial << "MQTT received: power=" << value << endl;
   if (value == "on") {
     ac.power_setting = true;
   } else if (value == "off") {
     ac.power_setting = false;
   } else {
+    Serial << "MQTT error: invalid power value" << endl;
     return false;
   }
   ac.SendElectra(false);
@@ -261,9 +276,11 @@ bool powerHandler(const HomieRange& range, const String& value) {
 }
 
 bool jsonHandler(const HomieRange& range, const String& value) {
+  Serial << "MQTT received: json=" << value << endl;
   StaticJsonDocument<200> parsed;
   auto error = deserializeJson(parsed,value);
   if (error) {
+    Serial << "MQTT error: failed to parse JSON" << endl;
     return false;
   }
 

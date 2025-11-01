@@ -80,6 +80,8 @@ void IRelectra::SendElectra(bool notify) {
     // get the data representing the configuration
     uint64_t code = EncodeElectra(notify);
     
+    Serial.println("IR command sent to GPIO: 0x" + String((unsigned long)code, HEX) + (notify ? " (notify)" : ""));
+    
     // The whole packet looks this:
     //  3 Times: 
     //    3000 usec MARK
@@ -157,7 +159,7 @@ void IRelectra::UpdateFromIR(uint64_t code) {
     uint32_t send_temp;
     power_t power;
     bool notify;
-
+    
     power =     (power_t)  ((code >> 33) & 1);
     mode =      (ac_mode_t)((code >> 30) & 7);
     fan =       (fan_t)    ((code >> 28) & 3);
@@ -167,6 +169,13 @@ void IRelectra::UpdateFromIR(uint64_t code) {
     ifeel =     (ifeel_t)  ((code >> 24) & 1);
     send_temp = (ifeel_t)  ((code >> 19) & 31);
     sleep =     (sleep_t)  ((code >> 18) & 1);
+    
+    Serial.println("IR code parsed: 0x" + String((unsigned long)code, HEX) + 
+                   " | Power: " + String(power == POWER_TOGGLE ? "TOGGLE" : "KEEP") + 
+                   ", Mode: " + String(mode) + ", Fan: " + String(fan) + ", Notify: " + String(notify ? "yes" : "no") + 
+                   " | Swing_H: " + String(swing_h ? "on" : "off") + ", Swing: " + String(swing ? "on" : "off") + 
+                   ", IFeel: " + String(ifeel ? "on" : "off") + ", Sleep: " + String(sleep ? "on" : "off") + 
+                   ", Temp: " + String(notify ? send_temp + 5 : send_temp + 15));
 
     if (power == POWER_TOGGLE) {
         power_setting = !power_real;

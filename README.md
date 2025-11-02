@@ -42,9 +42,10 @@ Once the code is installed on the esp, it will boot in configuration mode. Follo
 A sample json config file is provided under `/data/homie/config.json`. This file can be edited and uploaded using platform.io under "Platform -> Build Filesystem Image" and the "Platform -> Upload Filesystem Image". Make sure to properly edit the file before uploading.
 
 ### Building
-Building with platform.io is quite simple. But Homie is not compatible with Platform.io 3.0 for ESP8266 out of the box. You need to change two files in the Homie library.
+Building with platform.io is quite simple. But Homie is not compatible with Platform.io 3.0 for ESP8266 and ESP32 out of the box. You need to change files in the Homie library: `./pio/libdeps/`<target>`/Homie/src/Homie/Boot`.
+#### ESP8266
 - Start building as usual. You will see some errors regarding the "HTTPClient" calls not being supported.
-- Navigate to the ./pio/libdeps/<target>/Homie/src/Homie/Boot
+- Navigate to the ./pio/libdeps/`<target>`/Homie/src/Homie/Boot
 - Edit the `BootConfig.hpp` and `BootConfig.cpp` files as follows:
 
 - BootConfig.hpp
@@ -74,7 +75,17 @@ so that it looks as follows:
   // copy headers
 ```
 
+#### ESP32
+For esp32 support you need to edit Homie either.
+After trying to build, you will see errors regarding arduino events.
+Open `BootNormal.cpp` and replace these strings:
 
+- replace: `WiFiEvent_t::SYSTEM_EVENT_STA_GOT_IP` with: `ARDUINO_EVENT_WIFI_STA_GOT_IP`
+- replace: `WiFiEvent_t::SYSTEM_EVENT_STA_DISCONNECTED` with: `ARDUINO_EVENT_WIFI_STA_DISCONNECTED`
+- replace: `info.disconnected.reason` with: `info.wifi_sta_disconnected.reason` (2 occurrences)
+
+
+In addition, there are dependencies conflicts bewtween `Async TCP` and `AsyncTCP` libraries, since `ESP Async WebServer` requires the first and `AsyncMqttClient` the last, but they use the same function names. adding `Async TCP` to `lib_ignore ` on `platformio.ini` should solve this, but if in the future you have linking errors with `AsyncTCP` - try to seek there for the cause.
 
 ## Usage
 After the esp is configured, it will subscribe to the following MQTT topics:

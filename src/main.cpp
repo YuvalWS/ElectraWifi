@@ -90,6 +90,15 @@ void send_updates() {
   }
   //Serial << "AC swing: " << (ac.swing ? "on": "off") << "|" << (ac.swing_h  ? "on": "off") <<endl;
   //Serial << "Send Update swing: " << swing << endl;
+  
+  Serial << "Sending state update: power=" << (ac.power_real ? "on" : "off") 
+         << " mode=" << mode 
+         << " fan=" << fan 
+         << " swing=" << swing 
+         << " temp=" << ac.temperature 
+         << " ifeel=" << (ac.ifeel == IFEEL_ON ? "on" : "off") 
+         << endl;
+  
   powerNode.setProperty("state").send(ac.power_real ? "on": "off");
   fanNode.setProperty("state").send(fan);
   modeNode.setProperty("state").send(mode);
@@ -113,6 +122,7 @@ void loopHandler() {
         ac.power_real = power_state;
         ac.power_setting = power_state;
         powerNode.setProperty("state").send(power_state ? "on": "off");
+        send_updates();
         power_change_time = 0;
       }
     } else {

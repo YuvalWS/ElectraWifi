@@ -7,6 +7,22 @@
 #include <Arduino.h>
 #include <IRutils.h>
 
+// Debug logging callback - can be set by main.cpp
+static void (*debugLogCallback)(const String&) = nullptr;
+
+void setIRDebugCallback(void (*callback)(const String&)) {
+    debugLogCallback = callback;
+}
+
+// Debug logging - controlled by DEBUG_SERIAL and DEBUG_MQTT build flags
+#if DEBUG_SERIAL || DEBUG_MQTT
+  #define DEBUG_LOG(x) do { \
+    if (debugLogCallback) debugLogCallback(x); \
+  } while(0)
+#else
+  inline void DEBUG_LOG(const String&) { }
+#endif
+
 #define UNIT 1000
 #define TICKS_TO_UNITS(x) round((float)(x) * kRawTick / UNIT)
 
@@ -80,7 +96,7 @@ void IRelectra::SendElectra(bool notify) {
     // get the data representing the configuration
     uint64_t code = EncodeElectra(notify);
     
-    Serial.println("IR command sent to GPIO: 0x" + String((unsigned long)code, HEX) + (notify ? " (notify)" : ""));
+    DEBUG_LOG("IR command sent to GPIO: 0x" + String((unsigned long)code, HEX) + (notify ? " (notify)" : ""));
     
     // The whole packet looks this:
     //  3 Times: 
@@ -170,12 +186,12 @@ void IRelectra::UpdateFromIR(uint64_t code) {
     send_temp = (ifeel_t)  ((code >> 19) & 31);
     sleep =     (sleep_t)  ((code >> 18) & 1);
     
-    Serial.println("IR code parsed: 0x" + String((unsigned long)code, HEX) + 
-                   " | Power: " + String(power == POWER_TOGGLE ? "TOGGLE" : "KEEP") + 
-                   ", Mode: " + String(mode) + ", Fan: " + String(fan) + ", Notify: " + String(notify ? "yes" : "no") + 
-                   " | Swing_H: " + String(swing_h ? "on" : "off") + ", Swing: " + String(swing ? "on" : "off") + 
-                   ", IFeel: " + String(ifeel ? "on" : "off") + ", Sleep: " + String(sleep ? "on" : "off") + 
-                   ", Temp: " + String(notify ? send_temp + 5 : send_temp + 15));
+    DEBUG_LOG("IR code parsed: 0x" + String((unsigned long)code, HEX) + 
+              " | Power: " + String(power == POWER_TOGGLE ? "TOGGLE" : "KEEP") + 
+              ", Mode: " + String(mode) + ", Fan: " + String(fan) + ", Notify: " + String(notify ? "yes" : "no") + 
+              " | Swing_H: " + String(swing_h ? "on" : "off") + ", Swing: " + String(swing ? "on" : "off") + 
+              ", IFeel: " + String(ifeel ? "on" : "off") + ", Sleep: " + String(sleep ? "on" : "off") + 
+              ", Temp: " + String(notify ? send_temp + 5 : send_temp + 15));
 
     if (power == POWER_TOGGLE) {
         power_setting = !power_real;

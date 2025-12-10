@@ -11,6 +11,10 @@
 
 #include <stdint.h>
 #include <IRrecv.h>
+#include <WString.h>
+
+// Debug logging callback
+void setIRDebugCallback(void (*callback)(const String&));
 
 enum power_t 
 {

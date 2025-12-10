@@ -7,15 +7,28 @@
 #include <ArduinoJson.h>
 #include "IRelectra.h"
 
+// Debug logging - controlled by DEBUG_SERIAL and DEBUG_MQTT build flags
+#if DEBUG_SERIAL && DEBUG_MQTT
+  #define DEBUG_LOG(x) do { Serial.println(x); debugNode.setProperty("log").send(x); } while(0)
+#elif DEBUG_SERIAL
+  #define DEBUG_LOG(x) Serial.println(x)
+#elif DEBUG_MQTT
+  #define DEBUG_LOG(x) debugNode.setProperty("log").send(x)
+#else
+  inline void DEBUG_LOG(const String&) { }
+#endif
 
 HomieNode temperatureNode("temperature", "temperature","temperature");
 HomieNode modeNode("mode", "mode","mode");
 HomieNode fanNode("fan", "fan","fan");
 HomieNode swingNode("swing", "swing","swing");
 HomieNode ifeelNode("ifeel", "ifeel","ifeel");
-HomieNode ifeelTempNode("ifeel_temperature", "ifeel_temperature","ifeel_temperature");
+HomieNode ifeelTempNode("ifeel-temperature", "ifeel_temperature","ifeel_temperature");
 HomieNode powerNode("power", "power","power");
 HomieNode stateNode("state", "state","state");
+#if DEBUG_MQTT
+HomieNode debugNode("debug", "debug","debug");
+#endif
 
 #ifdef ARDUINO_ESP8266_ESP01
 const uint8_t POWER_PIN = 2;
@@ -88,16 +101,13 @@ void send_updates() {
   } else {
     swing = "off";
   }
-  //Serial << "AC swing: " << (ac.swing ? "on": "off") << "|" << (ac.swing_h  ? "on": "off") <<endl;
-  //Serial << "Send Update swing: " << swing << endl;
   
-  Serial << "Sending state update: power=" << (ac.power_real ? "on" : "off") 
-         << " mode=" << mode 
-         << " fan=" << fan 
-         << " swing=" << swing 
-         << " temp=" << ac.temperature 
-         << " ifeel=" << (ac.ifeel == IFEEL_ON ? "on" : "off") 
-         << endl;
+  DEBUG_LOG("Sending state update: power=" + String(ac.power_real ? "on" : "off") + 
+         " mode=" + mode + 
+         " fan=" + fan + 
+         " swing=" + swing + 
+         " temp=" + String(ac.temperature) + 
+         " ifeel=" + String(ac.ifeel == IFEEL_ON ? "on" : "off"));
   
   powerNode.setProperty("state").send(ac.power_real ? "on": "off");
   fanNode.setProperty("state").send(fan);
@@ -118,7 +128,7 @@ void loopHandler() {
   if (power_state != ac.power_real) {
     if (power_change_time) {
       if (now - power_change_time > POWER_DEBOUNCE) {
-        Serial << "Power pin state changed: " << (power_state ? "on" : "off") << endl;
+        DEBUG_LOG("Power pin state changed: " + String(power_state ? "on" : "off"));
         ac.power_real = power_state;
         ac.power_setting = power_state;
         powerNode.setProperty("state").send(power_state ? "on": "off");
@@ -135,6 +145,7 @@ void loopHandler() {
   // Send ifeel if relevant
   if (now - ifeel_send_time >= IFEEL_INTERVAL) {
     if (ac.ifeel == IFEEL_ON) {
+      DEBUG_LOG("Sending ifeel temperature: " + String(ac.ifeel_temperature));
       ac.SendElectra(true);
     }
     ifeel_send_time = now;
@@ -155,7 +166,7 @@ void loopHandler() {
     code = DecodeElectraIR(ir_ticks);
     irrecv.resume();
     if (code) {
-      Serial << "IR command received: 0x" << String((unsigned long)code, HEX) << endl;
+      DEBUG_LOG("IR command received: 0x" + String((unsigned long)code, HEX));
       ac.UpdateFromIR(code);
       ac.SendElectra(false);
       send_updates();
@@ -166,13 +177,13 @@ void loopHandler() {
 
 bool powerHandler(const HomieRange& range, const String& value) {
   // This method is called when using the HA actions climate.turn_on and climate.turn_off
-  Serial << "MQTT received: power=" << value << endl;
+  DEBUG_LOG("MQTT received: power=" + value);
   if (value == "on") {
     ac.power_setting = true;
   } else if (value == "off") {
     ac.power_setting = false;
   } else {
-    Serial << "MQTT error: invalid power value" << endl;
+    DEBUG_LOG("MQTT error: invalid power value");
     return false;
   }
   ac.SendElectra(false);
@@ -183,10 +194,10 @@ bool powerHandler(const HomieRange& range, const String& value) {
 }
 
 bool temperatureHandler(const HomieRange& range, const String& value) {
-  Serial << "MQTT received: temperature=" << value << endl;
+  DEBUG_LOG("MQTT received: temperature=" + value);
   uint8_t temp = value.toInt();
   if (temp < 15 || temp > 30) { // setpoint temp has only 4 bits where 15 == 0b0000 and 30 == 0b1111
-    Serial << "MQTT error: temperature out of range (15-30)" << endl;
+    DEBUG_LOG("MQTT error: temperature out of range (15-30)");
     return false;
   }
   ac.temperature = temp;
@@ -198,7 +209,7 @@ bool temperatureHandler(const HomieRange& range, const String& value) {
 bool modeHandler(const HomieRange& range, const String& value) {
   // This method is called when using the HA action climate.set_hvac_mode
   // Since climate.set_hvac_mode can be used to switch between `off` and other modes instead of climate.turn_on/off, it needs to call powerHandler.
-  Serial << "MQTT received: mode=" << value << endl;
+  DEBUG_LOG("MQTT received: mode=" + value);
   if (value == "cool") {
     ac.mode = MODE_COOL;
   } else if (value == "heat") {
@@ -212,14 +223,14 @@ bool modeHandler(const HomieRange& range, const String& value) {
   } else if (value == "off") {
     return powerHandler(range, "off");
   } else {
-    Serial << "MQTT error: invalid mode value" << endl;
+    DEBUG_LOG("MQTT error: invalid mode value");
     return false;
   }
   return powerHandler(range, "on");
 }
 
 bool fanHandler(const HomieRange& range, const String& value) {
-  Serial << "MQTT received: fan=" << value << endl;
+  DEBUG_LOG("MQTT received: fan=" + value);
   if (value == "low") {
     ac.fan = FAN_LOW;
   } else if (value == "med") {
@@ -229,7 +240,7 @@ bool fanHandler(const HomieRange& range, const String& value) {
   } else if (value == "auto") {
     ac.fan = FAN_AUTO;
   } else {
-    Serial << "MQTT error: invalid fan value" << endl;
+    DEBUG_LOG("MQTT error: invalid fan value");
     return false;
   }
   ac.SendElectra(false);
@@ -238,13 +249,13 @@ bool fanHandler(const HomieRange& range, const String& value) {
 }
 
 bool ifeelHandler(const HomieRange& range, const String& value) {
-  Serial << "MQTT received: ifeel=" << value << endl;
+  DEBUG_LOG("MQTT received: ifeel=" + value);
   if (value == "on") {
     ac.ifeel = IFEEL_ON;
   } else if (value == "off") {
     ac.ifeel = IFEEL_OFF;
   } else {
-    Serial << "MQTT error: invalid ifeel value" << endl;
+    DEBUG_LOG("MQTT error: invalid ifeel value");
     return false;
   }
   ac.SendElectra(false);
@@ -253,10 +264,10 @@ bool ifeelHandler(const HomieRange& range, const String& value) {
 }
 
 bool ifeelTempHandler(const HomieRange& range, const String& value) {
-  Serial << "MQTT received: ifeel_temperature=" << value << endl;
+  DEBUG_LOG("MQTT received: ifeel_temperature=" + value);
   uint8_t temp = value.toInt();
   if (temp < 5 || temp > 36) { // ifeel temp has only 5 bits where 0 == 0b00000 and 36 == 0b11111
-    Serial << "MQTT error: ifeel_temperature out of range (5-36)" << endl;
+    DEBUG_LOG("MQTT error: ifeel_temperature out of range (5-36)");
     return false;
   }
   ac.ifeel_temperature = temp;
@@ -265,7 +276,7 @@ bool ifeelTempHandler(const HomieRange& range, const String& value) {
 }
 
 bool swingHandler(const HomieRange& range, const String& value) {
-  Serial << "MQTT received: swing=" << value << endl;
+  DEBUG_LOG("MQTT received: swing=" + value);
   if (value == "on") {
     ac.swing = SWING_ON;
     ac.swing_h = SWING_H_OFF;
@@ -279,7 +290,7 @@ bool swingHandler(const HomieRange& range, const String& value) {
     ac.swing = SWING_OFF;
     ac.swing_h = SWING_H_OFF;
   } else {
-    Serial << "MQTT error: invalid swing value" << endl;
+    DEBUG_LOG("MQTT error: invalid swing value");
     return false;
   }
   ac.SendElectra(false);
@@ -289,11 +300,11 @@ bool swingHandler(const HomieRange& range, const String& value) {
 
 
 bool jsonHandler(const HomieRange& range, const String& value) {
-  Serial << "MQTT received: json=" << value << endl;
+  DEBUG_LOG("MQTT received: json=" + value);
   StaticJsonDocument<200> parsed;
   auto error = deserializeJson(parsed,value);
   if (error) {
-    Serial << "MQTT error: failed to parse JSON" << endl;
+    DEBUG_LOG("MQTT error: failed to parse JSON");
     return false;
   }
 
@@ -379,6 +390,19 @@ void setup() {
   Serial.begin(115200);
   Serial << endl << endl;
   //Homie.disableLogging();
+  
+#if DEBUG_SERIAL || DEBUG_MQTT
+  // Set up IR debug logging callback
+  setIRDebugCallback([](const String& msg) {
+    #if DEBUG_SERIAL
+      Serial.println(msg);
+    #endif
+    #if DEBUG_MQTT
+      debugNode.setProperty("log").send(msg);
+    #endif
+  });
+#endif
+
 #ifdef ARDUINO_ESP8266_ESP01
   Homie.disableLedFeedback();
 #endif
@@ -392,6 +416,9 @@ void setup() {
   powerNode.advertise("state").settable(powerHandler);
   swingNode.advertise("state").settable(swingHandler);
   stateNode.advertise("json").settable(jsonHandler);
+#if DEBUG_MQTT
+  debugNode.advertise("log");
+#endif
   
   pinMode(POWER_PIN, INPUT_PULLUP);
 #ifndef ARDUINO_ESP8266_ESP01

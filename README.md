@@ -223,9 +223,10 @@ automation:
     action:
       service: mqtt.publish
       data:
-        topic: "homie/<homie-id>/ifeel_temperature/state/set"
-        payload_template: "{{ states.sensor.<my-tempereture-sensor>.state }}"
+        topic: "devices/AC/ifeel-temperature/state/set"
+        payload: "{{ states('sensor.<tempereture-sensor>') }}"
 ```
+Note: The protocol only supports integer values, so the temperature will be rounded down.
 
 ### Credits
 

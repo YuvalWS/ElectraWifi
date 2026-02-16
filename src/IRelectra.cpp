@@ -14,8 +14,8 @@ void setIRDebugCallback(void (*callback)(const String&)) {
     debugLogCallback = callback;
 }
 
-// Debug logging - controlled by DEBUG_SERIAL and DEBUG_MQTT build flags
-#if DEBUG_SERIAL || DEBUG_MQTT
+// Debug logging - controlled by APP_DEBUG_SERIAL and DEBUG_MQTT build flags
+#if APP_DEBUG_SERIAL || DEBUG_MQTT
   #define DEBUG_LOG(x) do { \
     if (debugLogCallback) debugLogCallback(x); \
   } while(0)

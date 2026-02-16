@@ -7,10 +7,10 @@
 #include <ArduinoJson.h>
 #include "IRelectra.h"
 
-// Debug logging - controlled by DEBUG_SERIAL and DEBUG_MQTT build flags
-#if DEBUG_SERIAL && DEBUG_MQTT
+// Debug logging - controlled by APP_DEBUG_SERIAL and DEBUG_MQTT build flags
+#if APP_DEBUG_SERIAL && DEBUG_MQTT
   #define DEBUG_LOG(x) do { Serial.println(x); debugNode.setProperty("log").send(x); } while(0)
-#elif DEBUG_SERIAL
+#elif APP_DEBUG_SERIAL
   #define DEBUG_LOG(x) Serial.println(x)
 #elif DEBUG_MQTT
   #define DEBUG_LOG(x) debugNode.setProperty("log").send(x)
@@ -38,6 +38,7 @@ const uint8_t POWER_PIN = 5;
 const uint8_t IR_PIN = 4;
 const uint8_t GREEN_LED_PIN = 12;
 const uint8_t RED_LED_PIN = 15;
+const uint8_t BEEP_PIN = 13;
 #endif
 
 #ifndef ELECTRAWIFI_NO_IR_RCV
@@ -62,6 +63,9 @@ ulong power_change_time = 0;
 ulong ifeel_send_time = 0;
 ulong updates_send_time = 0;
 
+void triggerBeep() {
+  tone(BEEP_PIN, 2000, 150);
+}
 
 void send_updates() {
   String fan, mode, swing;
@@ -86,6 +90,8 @@ void send_updates() {
       mode = "dry";
     } else if (ac.mode == MODE_AUTO) {
       mode = "auto";
+    } else if (ac.mode == MODE_FAN) {
+      mode = "fan";
     }
   }
   else {
@@ -169,6 +175,7 @@ void loopHandler() {
       DEBUG_LOG("IR command received: 0x" + String((unsigned long)code, HEX));
       ac.UpdateFromIR(code);
       ac.SendElectra(false);
+      triggerBeep();
       send_updates();
     }
   }
@@ -187,6 +194,7 @@ bool powerHandler(const HomieRange& range, const String& value) {
     return false;
   }
   ac.SendElectra(false);
+  triggerBeep();
   ac.power_real = ac.power_setting;
   powerNode.setProperty("state").send(ac.power_real ? "on": "off");
   send_updates();
@@ -202,6 +210,7 @@ bool temperatureHandler(const HomieRange& range, const String& value) {
   }
   ac.temperature = temp;
   ac.SendElectra(false);
+  triggerBeep();
   send_updates();
   return true;
 }
@@ -244,6 +253,7 @@ bool fanHandler(const HomieRange& range, const String& value) {
     return false;
   }
   ac.SendElectra(false);
+  triggerBeep();
   send_updates();
   return true;
 }
@@ -259,6 +269,7 @@ bool ifeelHandler(const HomieRange& range, const String& value) {
     return false;
   }
   ac.SendElectra(false);
+  triggerBeep();
   send_updates();
   return true;
 }
@@ -294,6 +305,7 @@ bool swingHandler(const HomieRange& range, const String& value) {
     return false;
   }
   ac.SendElectra(false);
+  triggerBeep();
   send_updates();
   return true;
 }
@@ -380,6 +392,7 @@ bool jsonHandler(const HomieRange& range, const String& value) {
   ac.temperature = temp;
 
   ac.SendElectra(false);
+  triggerBeep();
   ac.power_real = ac.power_setting;
 
   send_updates();
@@ -389,12 +402,14 @@ bool jsonHandler(const HomieRange& range, const String& value) {
 void setup() {
   Serial.begin(115200);
   Serial << endl << endl;
+  pinMode(BEEP_PIN, OUTPUT);
+  digitalWrite(BEEP_PIN, HIGH); // HIGH = Silent for Active-Low buzzers
   //Homie.disableLogging();
   
-#if DEBUG_SERIAL || DEBUG_MQTT
+#if APP_DEBUG_SERIAL || DEBUG_MQTT
   // Set up IR debug logging callback
   setIRDebugCallback([](const String& msg) {
-    #if DEBUG_SERIAL
+    #if APP_DEBUG_SERIAL
       Serial.println(msg);
     #endif
     #if DEBUG_MQTT

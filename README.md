@@ -108,12 +108,37 @@ Monitoring and getting the real state of the AC is also possible by subscribing 
 
 ### Home Assistant
 
-Home Assistant's MQTT HVAC component can be used with the following configuration:
+Since Home Assistant 2022.6, MQTT entities are configured under the top-level `mqtt:` key in `configuration.yaml` rather than using `platform: mqtt` inside each domain. The examples below use this new style.
+
+#### Device grouping and YAML anchors
+
+All entities (climate, iFeel switch, reboot button) belong to the same logical device — the ESP controller. To avoid repeating the device block and to group them together in the HA device registry, define it once using a **YAML anchor** (`&main_ac_device`) and reference it in the other entities with an **alias** (`*main_ac_device`):
 
 ```yaml
-climate:
-  - platform: mqtt
-    name: AC
+device: &main_ac_device   # defines the anchor
+  identifiers: "main_ac"  # unique ID that groups all entities into one device
+  manufacturer: "Electra"
+  name: "Main AC"
+
+# later, in another entity:
+device: *main_ac_device   # reuses the exact same block
+```
+
+All entities sharing the same `identifiers` value will appear under one device card in **Settings → Devices & Services → MQTT**.
+
+---
+
+#### Climate (AC control)
+
+```yaml
+mqtt:
+  climate:
+    name: AC MQTT
+    unique_id: mqtt_ac_esp
+    device: &main_ac_device
+      identifiers: "main_ac"
+      manufacturer: "Electra"
+      name: "Main AC"
     modes:
       - "heat"
       - "cool"
@@ -145,16 +170,35 @@ climate:
     swing_mode_state_topic: "devices/AC/swing/state"
 ```
 
-It's possible to activate the iFeel by using the build-in aux-heat or away_mode topic for the MQTT HVAC component by adding the following lines:
-Its not ideal as it will show "Preset: Home/Away" but it works fine.
+#### iFeel switch
+
+iFeel is exposed as a dedicated MQTT switch (cleaner than the old `away_mode` hack which showed "Preset: Home/Away"):
 
 ```yaml
-climate:
-    ...
-    ...
-    away_mode_command_topic: "devices/AC/ifeel/state/set"
-    away_mode_state_topic: "devices/AC/ifeel/state"
+  switch:
+    name: "AC iFeel"
+    unique_id: main_ac_ifeel
+    device: *main_ac_device
+    icon: mdi:home-thermometer-outline
+    command_topic: "devices/AC/ifeel/state/set"
+    state_topic: "devices/AC/ifeel/state"
+    payload_on: "on"
+    payload_off: "off"
 ```
+
+#### Reboot button
+
+```yaml
+  button:
+    name: "AC Controller Reboot"
+    unique_id: ac_esp_reboot
+    device: *main_ac_device
+    icon: mdi:restart
+    command_topic: "devices/AC/reboot/trigger/set"
+    payload_press: "true"
+```
+
+> **Note:** The `mqtt:` key must appear only once in `configuration.yaml`. Place `climate:`, `switch:`, and `button:` as siblings under it. The YAML anchor `&main_ac_device` must be defined before it is referenced with `*main_ac_device`, so the `climate:` block (where the anchor is declared) must come first.
 
 ### Home Assistant - Lovelace UI
 
@@ -231,31 +275,6 @@ automation:
         payload: "{{ states('sensor.<tempereture-sensor>') }}"
 ```
 Note: The protocol only supports integer values, so the temperature will be rounded down.
-
-### Home Assistant - Remote reboot
-
-To add a reboot button in Home Assistant, add the following to your `configuration.yaml`:
-
-```yaml
-button:
-  - platform: mqtt
-    name: "AC Contoller Reboot"
-    command_topic: "devices/AC/reboot/trigger/set"
-    payload_press: "true"
-```
-
-Alternatively, use a script or automation:
-
-```yaml
-script:
-  reboot_ac:
-    alias: Reboot AC ESP
-    sequence:
-      - service: mqtt.publish
-        data:
-          topic: "devices/AC/reboot/trigger/set"
-          payload: "true"
-```
 
 ### Credits
 

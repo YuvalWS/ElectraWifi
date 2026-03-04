@@ -30,18 +30,33 @@ HomieNode stateNode("state", "state","state");
 HomieNode debugNode("debug", "debug","debug");
 #endif
 
-#ifdef ARDUINO_ESP8266_ESP01
-const uint8_t POWER_PIN = 2;
-const uint8_t IR_PIN = 0;
-#else
-const uint8_t POWER_PIN = 5;
-const uint8_t IR_PIN = 4;
-const uint8_t GREEN_LED_PIN = 12;
-const uint8_t RED_LED_PIN = 15;
+// Pin assignments - configure per-environment in platformio.ini build_flags
+// e.g.  -D PIN_IR=23
+#ifndef PIN_POWER
+  #define PIN_POWER 5
+#endif
+#ifndef PIN_IR
+  #define PIN_IR 4
+#endif
+#ifndef PIN_GREEN_LED
+  #define PIN_GREEN_LED 12
+#endif
+#ifndef PIN_RED_LED
+  #define PIN_RED_LED 15
+#endif
+#ifndef PIN_IR_RECV
+  #define PIN_IR_RECV 14
+#endif
+
+const uint8_t POWER_PIN = PIN_POWER;
+const uint8_t IR_PIN = PIN_IR;
+#ifndef ARDUINO_ESP8266_ESP01
+const uint8_t GREEN_LED_PIN = PIN_GREEN_LED;
+const uint8_t RED_LED_PIN = PIN_RED_LED;
 #endif
 
 #ifndef ELECTRAWIFI_NO_IR_RCV
-const uint8_t IR_RECV_PIN = 14;
+const uint8_t IR_RECV_PIN = PIN_IR_RECV;
 #endif
 
 const uint8_t kTimeout = 10;

@@ -95,6 +95,8 @@ After the esp is configured, it will subscribe to the following MQTT topics:
   > Note: `"fan"` is also accepted as an alias for `"fan_only"` for backward compatibility.
 - .../ifeel_temperature/state/set
   - This topic accepts a number between 5 and 36 and sends it to the main unit as a temperature received by the "i feel" function of the remote.
+- .../reboot/trigger/set
+  - Publish `true` to this topic to reboot the device remotely.
   
 Monitoring and getting the real state of the AC is also possible by subscribing to the following topics:
 - .../power/state
@@ -229,6 +231,31 @@ automation:
         payload: "{{ states('sensor.<tempereture-sensor>') }}"
 ```
 Note: The protocol only supports integer values, so the temperature will be rounded down.
+
+### Home Assistant - Remote reboot
+
+To add a reboot button in Home Assistant, add the following to your `configuration.yaml`:
+
+```yaml
+button:
+  - platform: mqtt
+    name: "AC Contoller Reboot"
+    command_topic: "devices/AC/reboot/trigger/set"
+    payload_press: "true"
+```
+
+Alternatively, use a script or automation:
+
+```yaml
+script:
+  reboot_ac:
+    alias: Reboot AC ESP
+    sequence:
+      - service: mqtt.publish
+        data:
+          topic: "devices/AC/reboot/trigger/set"
+          payload: "true"
+```
 
 ### Credits
 

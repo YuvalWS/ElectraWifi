@@ -91,7 +91,8 @@ In addition, there are dependencies conflicts bewtween `Async TCP` and `AsyncTCP
 After the esp is configured, it will subscribe to the following MQTT topics:
 - .../state/json/set 
   - This topic accepts a json in the following format (all fields are mandatory), updates the state and send it to the AC unit:   
-  `{"power": "on|off", "mode": "cool|heat|fan|dry|auto", "fan": "low|med|high|auto", "temperature": 15..30, "ifeel": "on|off", "swing":"on|off|hor|both"}`
+  `{"power": "on|off", "mode": "cool|heat|fan_only|dry|auto", "fan": "low|med|high|auto", "temperature": 15..30, "ifeel": "on|off", "swing":"on|off|hor|both"}`
+  > Note: `"fan"` is also accepted as an alias for `"fan_only"` for backward compatibility.
 - .../ifeel_temperature/state/set
   - This topic accepts a number between 5 and 36 and sends it to the main unit as a temperature received by the "i feel" function of the remote.
   
@@ -115,6 +116,7 @@ climate:
       - "heat"
       - "cool"
       - "dry"
+      - "fan_only"
       - "off"
     fan_modes:
       - "high"

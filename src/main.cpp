@@ -86,6 +86,8 @@ void send_updates() {
       mode = "dry";
     } else if (ac.mode == MODE_AUTO) {
       mode = "auto";
+    } else if (ac.mode == MODE_FAN) {
+      mode = "fan_only";
     }
   }
   else {
@@ -218,7 +220,7 @@ bool modeHandler(const HomieRange& range, const String& value) {
     ac.mode = MODE_AUTO;
   } else if (value == "dry") {
     ac.mode = MODE_DRY;
-  } else if (value == "fan") {
+  } else if (value == "fan" || value == "fan_only") {
     ac.mode = MODE_FAN;
   } else if (value == "off") {
     return powerHandler(range, "off");

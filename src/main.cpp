@@ -26,6 +26,7 @@ HomieNode ifeelNode("ifeel", "ifeel","ifeel");
 HomieNode ifeelTempNode("ifeel-temperature", "ifeel_temperature","ifeel_temperature");
 HomieNode powerNode("power", "power","power");
 HomieNode stateNode("state", "state","state");
+HomieNode rebootNode("reboot", "reboot","reboot");
 #if DEBUG_MQTT
 HomieNode debugNode("debug", "debug","debug");
 #endif
@@ -42,7 +43,7 @@ const uint8_t BEEP_PIN = 13;
 #endif
 
 #ifndef ELECTRAWIFI_NO_IR_RCV
-const uint8_t IR_RECV_PIN = 14;
+const uint8_t IR_RECV_PIN = PIN_IR_RECV;
 #endif
 
 const uint8_t kTimeout = 10;
@@ -227,7 +228,7 @@ bool modeHandler(const HomieRange& range, const String& value) {
     ac.mode = MODE_AUTO;
   } else if (value == "dry") {
     ac.mode = MODE_DRY;
-  } else if (value == "fan") {
+  } else if (value == "fan" || value == "fan_only") {
     ac.mode = MODE_FAN;
   } else if (value == "off") {
     return powerHandler(range, "off");
@@ -399,6 +400,16 @@ bool jsonHandler(const HomieRange& range, const String& value) {
   return true;
 }
 
+bool rebootHandler(const HomieRange& range, const String& value) {
+  if (value == "true") {
+    DEBUG_LOG("Rebooting...");
+    ESP.restart();
+    return true;
+  }
+  DEBUG_LOG("MQTT error: invalid reboot value (expected \"true\")");
+  return false;
+}
+
 void setup() {
   Serial.begin(115200);
   Serial << endl << endl;
@@ -431,6 +442,7 @@ void setup() {
   powerNode.advertise("state").settable(powerHandler);
   swingNode.advertise("state").settable(swingHandler);
   stateNode.advertise("json").settable(jsonHandler);
+  rebootNode.advertise("trigger").settable(rebootHandler);
 #if DEBUG_MQTT
   debugNode.advertise("log");
 #endif
